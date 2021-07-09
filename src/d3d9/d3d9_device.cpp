@@ -21,13 +21,24 @@
 #include "../util/util_bit.h"
 #include "../util/util_math.h"
 
+#include "../../include/openvr/openvr.hpp"
+
 #include "d3d9_initializer.h"
+
+#include "IPresentCallback.h"
+#include "../hl2vr/HMDInterface.h"
 
 #include <algorithm>
 #include <cfloat>
 #ifdef MSC_VER
 #pragma fenv_access (on)
 #endif
+
+#define  MAGIC_WIDTH		12340
+
+IPresentCallback *g_pIPresentCallback = nullptr;
+HMDInterface* hmdInterface = nullptr;
+
 
 namespace dxvk {
 
@@ -80,6 +91,9 @@ namespace dxvk {
     CreateConstantBuffers();
 
     m_availableMemory = DetermineInitialTextureMemory();
+
+	hmdInterface = HMDInterface::Get();
+	g_pIPresentCallback = hmdInterface->GetIPresentCallback();
   }
 
 
@@ -381,6 +395,21 @@ namespace dxvk {
     if (unlikely(ppTexture == nullptr))
       return D3DERR_INVALIDCALL;
 
+	int index = -1;
+	if (Width >= MAGIC_WIDTH)
+	{
+		uint32_t rtWidth, rtHeight;
+		hmdInterface->GetRecommendedRenderTargetSize(&rtWidth, &rtHeight);
+
+		//Double width for both eyes
+		rtWidth *= 2;
+
+		index = Width - MAGIC_WIDTH;
+
+		Width = rtWidth;
+		Height = rtHeight;
+	}
+
     D3D9_COMMON_TEXTURE_DESC desc;
     desc.Width              = Width;
     desc.Height             = Height;
@@ -411,6 +440,34 @@ namespace dxvk {
 
       m_initializer->InitTexture(texture->GetCommonTexture(), initialData);
       *ppTexture = texture.ref();
+
+	  if (index != -1)
+	  {
+		  vr::VRVulkanTextureData_t vulkanData;
+		  memset(&vulkanData, 0, sizeof(vr::VRVulkanTextureData_t));
+
+		  //Set these here to indicate to DXVK this is a texture data object (a little hacky, but does the trick)
+		  vulkanData.m_nHeight = Height;
+		  vulkanData.m_nWidth = Width;
+
+		  //VkPhysicalDevice
+		  vulkanData.m_pPhysicalDevice = GetDXVKDevice()->adapter()->handle();
+		  //VkDevice
+		  vulkanData.m_pDevice = GetDXVKDevice()->handle();
+		  //VkImage
+		  vulkanData.m_nImage = (uint64_t)(texture->GetCommonTexture()->GetImage()->handle());
+		  //VkInstance
+		  vulkanData.m_pInstance = GetDXVKDevice()->instance()->vki()->instance();
+		  //VkQueue
+		  vulkanData.m_pQueue = GetDXVKDevice()->queues().graphics.queueHandle;
+
+		  vulkanData.m_nQueueFamilyIndex = GetDXVKDevice()->queues().graphics.queueFamily;
+
+		  vulkanData.m_nFormat = VK_FORMAT_B8G8R8A8_UNORM;
+		  vulkanData.m_nSampleCount = 0;
+
+		  hmdInterface->StoreSharedTexture(index, &vulkanData);
+	  }
 
       return D3D_OK;
     }
@@ -3368,13 +3425,16 @@ namespace dxvk {
     return D3D_OK;
   }
 
-
+  
   HRESULT STDMETHODCALLTYPE D3D9DeviceEx::PresentEx(
     const RECT* pSourceRect,
     const RECT* pDestRect,
           HWND hDestWindowOverride,
     const RGNDATA* pDirtyRegion,
           DWORD dwFlags) {
+
+	  hmdInterface->Present();
+
     return m_implicitSwapchain->Present(
       pSourceRect,
       pDestRect,

@@ -29,7 +29,7 @@ namespace dxvk::str {
 
   template<typename T, typename... Tx>
   void format1(std::stringstream& str, const T& arg, const Tx&... args) {
-    str << arg;
+//    str << arg;
     format1(str, args...);
   }
   
