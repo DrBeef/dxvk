@@ -2,6 +2,6 @@
 
 class VkSubmitThreadCallback {
 public:
-	virtual void PrePresent() = 0;
-	virtual void PostPresentHandoff() = 0;
+	virtual void PrePresentCallBack() = 0;
+	virtual void PostPresentCallback() = 0;
 };

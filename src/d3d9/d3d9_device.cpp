@@ -3442,7 +3442,7 @@ namespace dxvk {
       pDirtyRegion,
       dwFlags);
 
-	hmdInterface->PresentSync();
+	hmdInterface->PostPresent();
 
 	return result;
   }

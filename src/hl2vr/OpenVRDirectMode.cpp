@@ -45,9 +45,9 @@ OpenVRDirectMode::OpenVRDirectMode() :
 	m_initialised(false),
 	m_nextStoredTexture(0),
 	m_currentRenderTexture(0),
-	m_lastSubmittedTexture(-1),
+	m_submitTexture(-1),
 	m_hasHMDAttached(false),
-	m_PresentCalled(false)
+	m_posesStale(true)
 {
 	memset(m_SharedTextureHolder, 0, sizeof(m_SharedTextureHolder));
 	memset(m_buttonStates, 0, sizeof(m_buttonStates));
@@ -113,50 +113,11 @@ void OpenVRDirectMode::Present()
 		return;
 	}
 
-	m_PresentCalled = true;
-
-}
-
-void OpenVRDirectMode::PresentSync()
-{
-	if (!m_initialised)
 	{
-		return;
-	}
-
-	m_semaphore.wait();
-}
-
-void OpenVRDirectMode::PrePresent()
-{
-	if (!m_initialised)
-	{
-		return;
-	}
-
-	//Only do this if we know the PresentEx on the Device was called by the client
-	if (m_PresentCalled)
-	{
-		//reset the flag
-		m_PresentCalled = false;
-
-		static vr::VRTextureBounds_t leftBounds = { 0.0f, 0.0f, 0.5f, 1.0f };
-		static vr::VRTextureBounds_t rightBounds = { 0.5f, 0.0f, 1.0f, 1.0f };
-
-		if (m_hasHMDAttached)
+		//Set atomic values
 		{
-			if (vr::VRCompositor())
-			{
-				vr::EVRCompositorError error = vr::VRCompositor()->Submit(vr::Eye_Left, &(m_SharedTextureHolder[m_currentRenderTexture].m_VRTexture), &leftBounds);
-				if (error != vr::VRCompositorError_None)
-				{
-				}
-
-				error = vr::VRCompositor()->Submit(vr::Eye_Right, &(m_SharedTextureHolder[m_currentRenderTexture].m_VRTexture), &rightBounds);
-				if (error != vr::VRCompositorError_None)
-				{
-				}
-			}
+			m_submitTexture = m_currentRenderTexture;
+			m_posesStale = true;
 		}
 
 		//Move to the next texture
@@ -167,22 +128,61 @@ void OpenVRDirectMode::PrePresent()
 	}
 }
 
-void OpenVRDirectMode::PostPresentHandoff()
+void OpenVRDirectMode::PostPresent()
+{
+	if (!m_initialised)
+	{
+		return;
+	}
+}
+
+void OpenVRDirectMode::PrePresentCallBack()
 {
 	if (!m_initialised)
 	{
 		return;
 	}
 
-	if (m_hasHMDAttached)
+	//Only do this if we know the PresentEx on the Device was called by the client
+	if (m_submitTexture != -1)
 	{
-		//PostPresentHandoff called implicitly by WaitGetPoses
-		//vr::VRCompositor()->PostPresentHandoff();
+		static vr::VRTextureBounds_t leftBounds = { 0.0f, 0.0f, 0.5f, 1.0f };
+		static vr::VRTextureBounds_t rightBounds = { 0.5f, 0.0f, 1.0f, 1.0f };
 
-		vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+		if (m_hasHMDAttached)
+		{
+			if (vr::VRCompositor() && vr::VRCompositor()->CanRenderScene())
+			{
+				vr::EVRCompositorError error = vr::VRCompositor()->Submit(vr::Eye_Left, &(m_SharedTextureHolder[m_submitTexture].m_VRTexture), &leftBounds);
+				if (error != vr::VRCompositorError_None)
+				{
+				}
+
+				error = vr::VRCompositor()->Submit(vr::Eye_Right, &(m_SharedTextureHolder[m_submitTexture].m_VRTexture), &rightBounds);
+				if (error != vr::VRCompositorError_None)
+				{
+				}
+			}
+		}
+
+		m_submitTexture = -1;
+	}
+}
+
+void OpenVRDirectMode::PostPresentCallback()
+{
+	if (!m_initialised)
+	{
+		return;
 	}
 
+	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+
+	m_posesStale = false;
+
+	//Let main thread know poses are ready if it is waiting on them
 	m_semaphore.notify();
+
 }
 
 float OpenVRDirectMode::GetEyeDistance()
@@ -341,6 +341,11 @@ void OpenVRDirectMode::StartFrame()
 	if (!m_initialised || !m_hasHMDAttached || !vr::VRCompositor())
 	{
 		return;
+	}
+
+	if (m_posesStale)
+	{
+		m_semaphore.wait();
 	}
 
 	//Store previous frame's controller state

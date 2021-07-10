@@ -109,22 +109,24 @@ namespace dxvk {
         std::lock_guard<dxvk::mutex> lock(m_mutexQueue);
 
         if (entry.submit.cmdList != nullptr) {
-          status = entry.submit.cmdList->submit(
-            entry.submit.waitSync,
-            entry.submit.wakeSync);
+			status = entry.submit.cmdList->submit(
+				entry.submit.waitSync,
+				entry.submit.wakeSync);
+
         } else if (entry.present.presenter != nullptr) {
 			if (g_pVkSubmitThreadCallback != nullptr)
 			{
-				g_pVkSubmitThreadCallback->PrePresent();
+				g_pVkSubmitThreadCallback->PrePresentCallBack();
 			}
 
 			status = entry.present.presenter->presentImage();
 
 			if (g_pVkSubmitThreadCallback != nullptr)
 			{
-				g_pVkSubmitThreadCallback->PostPresentHandoff();
+				g_pVkSubmitThreadCallback->PostPresentCallback();
 			}
 		}
+
       } else {
         // Don't submit anything after device loss
         // so that drivers get a chance to recover

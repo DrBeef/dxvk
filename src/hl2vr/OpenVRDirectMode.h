@@ -8,6 +8,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 
 struct SharedTextureHolder {
@@ -22,28 +23,18 @@ struct ButtonState {
 
 class Semaphore {
 public:
-	Semaphore()
-		: flag(false)
-	{
-	}
-
 	inline void notify() {
 		std::unique_lock<std::mutex> lock(mtx);
-		flag = true;
 		//notify the waiting thread
 		cv.notify_one();
 	}
 	inline void wait() {
 		std::unique_lock<std::mutex> lock(mtx);
-		if (!flag) {
-			cv.wait(lock);
-		}
-		flag = false;
+		cv.wait(lock);
 	}
 private:
 	std::mutex mtx;
 	std::condition_variable cv;
-	bool flag;
 };
 
 /**
@@ -61,12 +52,12 @@ public:
 	virtual VkSubmitThreadCallback* GetVkSubmitThreadCallback();
 
 	// VkSubmitThreadCallback
-	virtual void PrePresent();
-	virtual void PostPresentHandoff();
+	virtual void PrePresentCallBack();
+	virtual void PostPresentCallback();
 
-	//Rendering Stuff
+	//HMDInterface
 	virtual void Present();
-	virtual void PresentSync();
+	virtual void PostPresent();
 	virtual void GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint32_t *pnHeight);
 	virtual float GetEyeDistance();
 	virtual void GetEyeView(int eye, float matrix[4][4], bool invert);
@@ -77,12 +68,12 @@ public:
 	virtual int GetCurrentRenderTexture();
 	virtual int GetTotalStoredTextures();
 
-	//Tracjing Stuff
+	//HMDInterface Tracking Stuff
 	virtual void GetTrackingDataHMD(float hMatrix[4][4]);
 	virtual void GetTrackingDataLeftController(float lcMatrix[4][4]);
 	virtual void GetTrackingDataRightController(float rcMatrix[4][4]);
 
-	//Button Stuff
+	//HMDInterface Button Stuff
 	virtual bool  GetButtonHasChanged(ButtonList buttonID, ControllerType controllerType);
 	virtual bool  GetButtonIsTouched(ButtonList buttonID, ControllerType controllerType);
 	virtual bool  GetButtonIsPressed(ButtonList buttonID, ControllerType controllerType);
@@ -105,15 +96,14 @@ private:
 	vr::IVRRenderModels *m_pRenderModels;
 	vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
 	
-	char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];
-
 private:
 	bool m_initialised;
 	int m_nextStoredTexture;
 	int m_currentRenderTexture;
-	int m_lastSubmittedTexture;
 	bool m_hasHMDAttached;
-	bool m_PresentCalled;
+
+	std::atomic<int>   m_submitTexture = { -1 };
+	std::atomic<bool>   m_posesStale = { true };
 
 	Semaphore m_semaphore;
 
