@@ -1,8 +1,7 @@
 #pragma once
 
-class IPresentCallback {
+class VkSubmitThreadCallback {
 public:
 	virtual void PrePresent() = 0;
-	virtual void BeforeFirstQueueSubmit() = 0;
 	virtual void PostPresentHandoff() = 0;
 };

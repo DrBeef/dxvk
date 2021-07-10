@@ -4,7 +4,7 @@
 
 #include "../../include/openvr/openvr.hpp"
 
-#include "IPresentCallback.h"
+#include "VkSubmitThreadCallback.h"
 #include "stCommon.h"
 
 //Generic HMD interface in case we do want to add other APIs other than SteamVR
@@ -17,10 +17,11 @@ public:
 
 	virtual bool Init() = 0;
 
-	virtual IPresentCallback* GetIPresentCallback() = 0;
+	virtual VkSubmitThreadCallback* GetVkSubmitThreadCallback() = 0;
 
 	//Rendering Stuff
 	virtual void Present() = 0;
+	virtual void PresentSync() = 0;
 	virtual void PrePresent() = 0;
 	virtual void GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint32_t *pnHeight) = 0;
 	virtual float GetEyeDistance() = 0;

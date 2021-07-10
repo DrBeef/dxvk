@@ -1,9 +1,9 @@
 #include "dxvk_device.h"
 #include "dxvk_queue.h"
 
-#include "IPresentCallback.h"
+#include "VkSubmitThreadCallback.h"
 
-extern IPresentCallback *g_pIPresentCallback;
+extern VkSubmitThreadCallback *g_pVkSubmitThreadCallback;
 
 
 namespace dxvk {
@@ -91,8 +91,6 @@ namespace dxvk {
 
     std::unique_lock<dxvk::mutex> lock(m_mutex);
 
-	bool callBeforeFirstQueueSubmit = true;
-
     while (!m_stopped.load()) {
       m_appendCond.wait(lock, [this] {
         return m_stopped.load() || !m_submitQueue.empty();
@@ -111,30 +109,21 @@ namespace dxvk {
         std::lock_guard<dxvk::mutex> lock(m_mutexQueue);
 
         if (entry.submit.cmdList != nullptr) {
-
-			if (g_pIPresentCallback != nullptr && callBeforeFirstQueueSubmit)
-			{
-				g_pIPresentCallback->BeforeFirstQueueSubmit();
-				callBeforeFirstQueueSubmit = false;
-			}
-
           status = entry.submit.cmdList->submit(
             entry.submit.waitSync,
             entry.submit.wakeSync);
         } else if (entry.present.presenter != nullptr) {
-			if (g_pIPresentCallback != nullptr)
+			if (g_pVkSubmitThreadCallback != nullptr)
 			{
-				g_pIPresentCallback->PrePresent();
+				g_pVkSubmitThreadCallback->PrePresent();
 			}
 
 			status = entry.present.presenter->presentImage();
 
-			if (g_pIPresentCallback != nullptr)
+			if (g_pVkSubmitThreadCallback != nullptr)
 			{
-				g_pIPresentCallback->PostPresentHandoff();
+				g_pVkSubmitThreadCallback->PostPresentHandoff();
 			}
-
-			callBeforeFirstQueueSubmit = true;
 		}
       } else {
         // Don't submit anything after device loss

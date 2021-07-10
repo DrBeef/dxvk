@@ -105,6 +105,7 @@
       <MinimalRebuild>true</MinimalRebuild>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>./include;./build.w32;./include/shader_headers;$(DXSDK_DIR)\Include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
@@ -260,6 +261,7 @@
     <ClInclude Include="include\spirv\GLSL.std.450.h" />
     <ClInclude Include="include\spirv\GLSL.std.450.hpp" />
     <ClInclude Include="include\spirv\spirv.hpp" />
+    <ClInclude Include="include\VkSubmitThreadCallback.h" />
     <ClInclude Include="include\vulkan\vk_platform.h" />
     <ClInclude Include="include\vulkan\vulkan.h" />
     <ClInclude Include="include\vulkan\vulkan_core.h" />

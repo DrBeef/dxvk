@@ -4,7 +4,7 @@
 #pragma warning (disable : 4005)
 
 #include "HMDInterface.h"
-#include "IPresentCallback.h"
+#include "VkSubmitThreadCallback.h"
 
 #include <mutex>
 #include <condition_variable>
@@ -20,11 +20,37 @@ struct ButtonState {
 	float m_value;
 };
 
+class Semaphore {
+public:
+	Semaphore()
+		: flag(false)
+	{
+	}
+
+	inline void notify() {
+		std::unique_lock<std::mutex> lock(mtx);
+		flag = true;
+		//notify the waiting thread
+		cv.notify_one();
+	}
+	inline void wait() {
+		std::unique_lock<std::mutex> lock(mtx);
+		if (!flag) {
+			cv.wait(lock);
+		}
+		flag = false;
+	}
+private:
+	std::mutex mtx;
+	std::condition_variable cv;
+	bool flag;
+};
+
 /**
 * OpenVR Direct Mode render class.
 */
 class OpenVRDirectMode : public HMDInterface,
-	public IPresentCallback
+	public VkSubmitThreadCallback
 {
 public:
 	OpenVRDirectMode();
@@ -32,15 +58,15 @@ public:
 
 	virtual bool Init();	
 
-	virtual IPresentCallback* GetIPresentCallback();
+	virtual VkSubmitThreadCallback* GetVkSubmitThreadCallback();
 
-	// IPresentCallback
+	// VkSubmitThreadCallback
 	virtual void PrePresent();
-	virtual void BeforeFirstQueueSubmit();
 	virtual void PostPresentHandoff();
 
 	//Rendering Stuff
 	virtual void Present();
+	virtual void PresentSync();
 	virtual void GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint32_t *pnHeight);
 	virtual float GetEyeDistance();
 	virtual void GetEyeView(int eye, float matrix[4][4], bool invert);
@@ -88,6 +114,8 @@ private:
 	int m_lastSubmittedTexture;
 	bool m_hasHMDAttached;
 	bool m_PresentCalled;
+
+	Semaphore m_semaphore;
 
 	ButtonState m_buttonStates[ButtonsList::right_GestureFist + 1];
 	ButtonState m_previousButtonStates[ButtonsList::right_GestureFist + 1];

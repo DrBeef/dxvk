@@ -94,27 +94,16 @@ bool OpenVRDirectMode::Init()
 		return false;
 	}
 
-	vr::VRCompositor()->SetExplicitTimingMode(vr::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+	//vr::VRCompositor()->SetExplicitTimingMode(vr::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
 
 	m_initialised = true;
 
 	return true;
 }
 
-IPresentCallback* OpenVRDirectMode::GetIPresentCallback()
+VkSubmitThreadCallback* OpenVRDirectMode::GetVkSubmitThreadCallback()
 {
 	return this;
-}
-
-void OpenVRDirectMode::BeforeFirstQueueSubmit()
-{
-	if (!m_initialised)
-	{
-		//m_semaphore.notify();
-		return;
-	}
-
-	vr::VRCompositor()->SubmitExplicitTimingData();
 }
 
 void OpenVRDirectMode::Present()
@@ -126,18 +115,22 @@ void OpenVRDirectMode::Present()
 
 	m_PresentCalled = true;
 
-	//Move to the next texture
-	if (++m_currentRenderTexture > m_nextStoredTexture)
+}
+
+void OpenVRDirectMode::PresentSync()
+{
+	if (!m_initialised)
 	{
-		m_currentRenderTexture = 0;
+		return;
 	}
+
+	m_semaphore.wait();
 }
 
 void OpenVRDirectMode::PrePresent()
 {
 	if (!m_initialised)
 	{
-		//m_semaphore.notify();
 		return;
 	}
 
@@ -150,11 +143,7 @@ void OpenVRDirectMode::PrePresent()
 		static vr::VRTextureBounds_t leftBounds = { 0.0f, 0.0f, 0.5f, 1.0f };
 		static vr::VRTextureBounds_t rightBounds = { 0.5f, 0.0f, 1.0f, 1.0f };
 
-		if (m_hasHMDAttached &&
-			(
-				m_lastSubmittedTexture != m_currentRenderTexture ||
-				GetTotalStoredTextures() == 1
-				))
+		if (m_hasHMDAttached)
 		{
 			if (vr::VRCompositor())
 			{
@@ -168,25 +157,32 @@ void OpenVRDirectMode::PrePresent()
 				{
 				}
 			}
+		}
 
-			m_lastSubmittedTexture = m_currentRenderTexture;
+		//Move to the next texture
+		if (++m_currentRenderTexture > m_nextStoredTexture)
+		{
+			m_currentRenderTexture = 0;
 		}
 	}
-
-	//m_semaphore.notify();
 }
 
 void OpenVRDirectMode::PostPresentHandoff()
 {
 	if (!m_initialised)
 	{
-		//m_semaphore.notify();
 		return;
 	}
 
-	vr::VRCompositor()->PostPresentHandoff();
+	if (m_hasHMDAttached)
+	{
+		//PostPresentHandoff called implicitly by WaitGetPoses
+		//vr::VRCompositor()->PostPresentHandoff();
 
-	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+		vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+	}
+
+	m_semaphore.notify();
 }
 
 float OpenVRDirectMode::GetEyeDistance()

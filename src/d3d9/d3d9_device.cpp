@@ -25,7 +25,7 @@
 
 #include "d3d9_initializer.h"
 
-#include "IPresentCallback.h"
+#include "VkSubmitThreadCallback.h"
 #include "../hl2vr/HMDInterface.h"
 
 #include <algorithm>
@@ -36,7 +36,7 @@
 
 #define  MAGIC_WIDTH		12340
 
-IPresentCallback *g_pIPresentCallback = nullptr;
+VkSubmitThreadCallback *g_pVkSubmitThreadCallback = nullptr;
 HMDInterface* hmdInterface = nullptr;
 
 
@@ -93,7 +93,7 @@ namespace dxvk {
     m_availableMemory = DetermineInitialTextureMemory();
 
 	hmdInterface = HMDInterface::Get();
-	g_pIPresentCallback = hmdInterface->GetIPresentCallback();
+	g_pVkSubmitThreadCallback = hmdInterface->GetVkSubmitThreadCallback();
   }
 
 
@@ -3433,14 +3433,18 @@ namespace dxvk {
     const RGNDATA* pDirtyRegion,
           DWORD dwFlags) {
 
-	  hmdInterface->Present();
+	hmdInterface->Present();
 
-    return m_implicitSwapchain->Present(
+    HRESULT result =  m_implicitSwapchain->Present(
       pSourceRect,
       pDestRect,
       hDestWindowOverride,
       pDirtyRegion,
       dwFlags);
+
+	hmdInterface->PresentSync();
+
+	return result;
   }
 
 
