@@ -20,7 +20,7 @@ public:
 	virtual VkSubmitThreadCallback* GetVkSubmitThreadCallback() = 0;
 
 	//Rendering Stuff
-	virtual void Present() = 0;
+	virtual void PrePresent() = 0;
 	virtual void PostPresent() = 0;
 	virtual void GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint32_t *pnHeight) = 0;
 	virtual float GetEyeDistance() = 0;

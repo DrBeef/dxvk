@@ -21,22 +21,6 @@ struct ButtonState {
 	float m_value;
 };
 
-class Semaphore {
-public:
-	inline void notify() {
-		std::unique_lock<std::mutex> lock(mtx);
-		//notify the waiting thread
-		cv.notify_one();
-	}
-	inline void wait() {
-		std::unique_lock<std::mutex> lock(mtx);
-		cv.wait(lock);
-	}
-private:
-	std::mutex mtx;
-	std::condition_variable cv;
-};
-
 /**
 * OpenVR Direct Mode render class.
 */
@@ -56,7 +40,7 @@ public:
 	virtual void PostPresentCallback();
 
 	//HMDInterface
-	virtual void Present();
+	virtual void PrePresent();
 	virtual void PostPresent();
 	virtual void GetRecommendedRenderTargetSize(uint32_t *pnWidth, uint32_t *pnHeight);
 	virtual float GetEyeDistance();
@@ -105,7 +89,8 @@ private:
 	std::atomic<int>   m_submitTexture = { -1 };
 	std::atomic<bool>   m_posesStale = { true };
 
-	Semaphore m_semaphore;
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
 
 	ButtonState m_buttonStates[ButtonsList::right_GestureFist + 1];
 	ButtonState m_previousButtonStates[ButtonsList::right_GestureFist + 1];

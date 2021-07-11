@@ -3433,7 +3433,7 @@ namespace dxvk {
     const RGNDATA* pDirtyRegion,
           DWORD dwFlags) {
 
-	hmdInterface->Present();
+	hmdInterface->PrePresent();
 
     HRESULT result =  m_implicitSwapchain->Present(
       pSourceRect,

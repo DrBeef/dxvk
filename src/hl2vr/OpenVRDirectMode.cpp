@@ -106,7 +106,7 @@ VkSubmitThreadCallback* OpenVRDirectMode::GetVkSubmitThreadCallback()
 	return this;
 }
 
-void OpenVRDirectMode::Present()
+void OpenVRDirectMode::PrePresent()
 {
 	if (!m_initialised)
 	{
@@ -176,13 +176,17 @@ void OpenVRDirectMode::PostPresentCallback()
 		return;
 	}
 
-	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+	if (m_posesStale)
+	{
+		vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
-	m_posesStale = false;
+		std::unique_lock<std::mutex> lock(m_mutex);
 
-	//Let main thread know poses are ready if it is waiting on them
-	m_semaphore.notify();
+		m_posesStale = false;
 
+		//Let main thread know poses are ready if it is waiting on them
+		m_cv.notify_one();
+	}
 }
 
 float OpenVRDirectMode::GetEyeDistance()
@@ -343,9 +347,13 @@ void OpenVRDirectMode::StartFrame()
 		return;
 	}
 
-	if (m_posesStale)
 	{
-		m_semaphore.wait();
+		std::unique_lock<std::mutex> lock(m_mutex);
+
+		if (m_posesStale)
+		{
+			m_cv.wait(lock);
+		}
 	}
 
 	//Store previous frame's controller state
