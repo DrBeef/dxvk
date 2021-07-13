@@ -138,7 +138,7 @@ void OpenVRDirectMode::PostPresent()
 
 void OpenVRDirectMode::PrePresentCallBack()
 {
-	if (!m_initialised)
+	if (!m_initialised || !m_hasHMDAttached)
 	{
 		return;
 	}
@@ -149,19 +149,16 @@ void OpenVRDirectMode::PrePresentCallBack()
 		static vr::VRTextureBounds_t leftBounds = { 0.0f, 0.0f, 0.5f, 1.0f };
 		static vr::VRTextureBounds_t rightBounds = { 0.5f, 0.0f, 1.0f, 1.0f };
 
-		if (m_hasHMDAttached)
+		if (vr::VRCompositor() && vr::VRCompositor()->CanRenderScene())
 		{
-			if (vr::VRCompositor() && vr::VRCompositor()->CanRenderScene())
+			vr::EVRCompositorError error = vr::VRCompositor()->Submit(vr::Eye_Left, &(m_SharedTextureHolder[m_submitTexture].m_VRTexture), &leftBounds);
+			if (error != vr::VRCompositorError_None)
 			{
-				vr::EVRCompositorError error = vr::VRCompositor()->Submit(vr::Eye_Left, &(m_SharedTextureHolder[m_submitTexture].m_VRTexture), &leftBounds);
-				if (error != vr::VRCompositorError_None)
-				{
-				}
+			}
 
-				error = vr::VRCompositor()->Submit(vr::Eye_Right, &(m_SharedTextureHolder[m_submitTexture].m_VRTexture), &rightBounds);
-				if (error != vr::VRCompositorError_None)
-				{
-				}
+			error = vr::VRCompositor()->Submit(vr::Eye_Right, &(m_SharedTextureHolder[m_submitTexture].m_VRTexture), &rightBounds);
+			if (error != vr::VRCompositorError_None)
+			{
 			}
 		}
 
@@ -171,7 +168,7 @@ void OpenVRDirectMode::PrePresentCallBack()
 
 void OpenVRDirectMode::PostPresentCallback()
 {
-	if (!m_initialised)
+	if (!m_initialised || !m_hasHMDAttached)
 	{
 		return;
 	}
