@@ -1,3 +1,8 @@
+# THIS REPO IS ARCHIVED
+
+There will be no further changes on this repo
+
+
 # DXVK
 
 A Vulkan-based translation layer for Direct3D 9/10/11 which allows running 3D applications on Linux using Wine.
